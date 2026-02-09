@@ -1,8 +1,6 @@
-# TODO: 각 이미지 버전 검토, 로그 및 메트릭 수집 경로 수정 필요  
-
 services:
   prometheus:
-    image: prom/prometheus:v2.55.1
+    image: prom/prometheus:v3.1.0
     container_name: fairticket-prometheus
     ports:
       - "9090:9090"
@@ -16,7 +14,7 @@ services:
       - monitoring
 
   grafana:
-    image: grafana/grafana:11.2.0
+    image: grafana/grafana:11.5.0
     container_name: fairticket-grafana
     ports:
       - "3000:3000"
@@ -36,26 +34,31 @@ services:
       - monitoring
 
   loki:
-    image: grafana/loki:2.9.11
+    image: grafana/loki:3.3.0
     container_name: fairticket-loki
     ports:
       - "3100:3100"
     volumes:
       - loki_data:/loki
+    configs:
+      - source: loki_config
+        target: /etc/loki/local-config.yaml
     command: -config.file=/etc/loki/local-config.yaml
     restart: unless-stopped
     networks:
       - monitoring
 
   promtail:
-    image: grafana/promtail:3.0.0
+    image: grafana/promtail:3.3.0
     container_name: fairticket-promtail
-    environment:
-      - DOCKER_API_VERSION=1.44 
+    # Linux 환경이라면 host.docker.internal 사용을 위해 아래 설정 필요
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
     volumes:
       - /var/log:/var/log:ro
       - /var/lib/docker/containers:/var/lib/docker/containers:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
+      - promtail_data:/tmp
     configs:
       - source: promtail_config
         target: /etc/promtail/config.yml
@@ -73,51 +76,58 @@ configs:
       datasources:
         - name: Prometheus
           type: prometheus
-          access: proxy
           url: http://prometheus:9090
           isDefault: true
-          editable: false
         - name: Loki
           type: loki
-          access: proxy
           url: http://loki:3100
-          editable: false
 
   prometheus_config:
     content: |
       global:
         scrape_interval: 15s
-
       scrape_configs:
         - job_name: 'prometheus'
           static_configs:
             - targets: ['localhost:9090']
-
-        - job_name: 'loki'
-          static_configs:
-            - targets: ['fairticket-loki:3100']
-
-        - job_name: 'promtail'
-          static_configs:
-            - targets: ['fairticket-promtail:9080']
-
         - job_name: 'spring-boot-app'
           metrics_path: '/actuator/prometheus'
           static_configs:
             - targets: ['host.docker.internal:8080']
 
+  loki_config:
+    content: |
+      auth_enabled: false
+      server:
+        http_listen_port: 3100
+      common:
+        path_prefix: /loki
+        storage:
+          filesystem:
+            chunks_directory: /loki/chunks
+            rules_directory: /loki/rules
+        replication_factor: 1
+        ring:
+          kvstore:
+            store: inmemory
+      schema_config:
+        configs:
+          - from: 2020-10-24
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+
   promtail_config:
     content: |
       server:
         http_listen_port: 9080
-        grpc_listen_port: 0
-
       positions:
         filename: /tmp/positions.yaml
-
       clients:
-        - url: http://fairticket-loki:3100/loki/api/v1/push
-
+        - url: http://loki:3100/loki/api/v1/push
       scrape_configs:
         - job_name: docker_logs
           docker_sd_configs:
@@ -127,8 +137,6 @@ configs:
             - source_labels: ['__meta_docker_container_name']
               regex: '/(.*)'
               target_label: 'container'
-            - source_labels: ['__meta_docker_container_label_com_docker_compose_service']
-              target_label: 'service'
 
 networks:
   monitoring:
@@ -138,3 +146,4 @@ volumes:
   prometheus_data:
   grafana_data:
   loki_data:
+  promtail_data:
