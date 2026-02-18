@@ -1,0 +1,90 @@
+# 환경 변수 및 시크릿 파일
+.env
+.env.local
+.env.*.local
+*.env
+config.env
+secrets/
+
+# 로그 파일
+*.log
+logs/
+*.log.*
+
+# 데이터 디렉토리
+data/
+prometheus_data/
+grafana_data/
+loki_data/
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker 관련
+.docker/
+docker-volumes/
+
+# IDE 및 에디터 설정
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# OS 관련 파일
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# 임시 파일
+*.tmp
+*.temp
+*.bak
+*.backup
+*.cache
+
+# Node.js (필요한 경우)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Python (필요한 경우)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+ENV/
+.venv
+
+# 빌드 산출물
+dist/
+build/
+*.egg-info/
+
+# 테스트 커버리지
+coverage/
+.nyc_output/
+*.lcov
+
+# Grafana 프로비저닝 캐시
+grafana/provisioning/.cache/
+
+# Prometheus 데이터
+prometheus/data/
+
+# Loki 데이터
+loki/data/
+
+# 백업 파일
+*.backup
+backup/

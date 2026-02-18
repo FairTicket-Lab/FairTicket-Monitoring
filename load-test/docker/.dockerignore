@@ -1,0 +1,76 @@
+# .dockerignore for FairTicket-BE Spring Boot Application
+#
+# 참고: 이 파일은 FairTicket-BE/.dockerignore와 동일하게 유지되어야 합니다.
+# docker-compose.yml에서 build context를 ../../../FairTicket-BE로 지정했으므로,
+# 실제 빌드 시에는 FairTicket-BE/.dockerignore가 사용됩니다.
+# 이 파일은 참고용으로 동일한 내용을 유지합니다.
+#
+# Gradle (로컬 캐시만 제외, gradlew·gradle/wrapper는 포함되어 Docker 빌드에 사용됨)
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+!gradle/wrapper/gradle-wrapper.properties
+
+# Build outputs (로컬 빌드 결과물 제외, Docker 내부에서 빌드)
+build/
+out/
+target/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+*.swo
+.settings/
+.classpath
+.project
+
+# macOS
+.DS_Store
+
+# Logs
+*.log
+logs/
+*.log.*
+
+# Environment files
+.env
+.env.local
+.env.*.local
+application-local.yaml
+application-local.yml
+application-secret.yaml
+application-secret.yml
+
+# Test files
+src/test/
+*.test.*
+
+# Load test
+load-test/
+
+# Git
+.git/
+.gitignore
+.gitattributes
+
+# Docker
+docker-compose.yml
+docker-compose.override.yml
+Dockerfile*
+.dockerignore
+
+# Documentation
+README.md
+HELP.md
+*.md
+
+# Misc
+*.bak
+*.tmp
+*.temp
+*.orig
+*.rej
+*~

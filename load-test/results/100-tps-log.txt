@@ -1,0 +1,112 @@
+suhyen@mac-m2 load-test % ./scripts/04-run-queue-100.sh
+=== 스케줄 오픈 상태 확인 (scheduleId=1) ===
+스케줄이 아직 오픈되지 않았습니다. seed-db.sh 실행 후 재확인합니다.
+Applying seed via Docker (fairticket-postgres)...
+UPDATE 1
+UPDATE 2
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+Done. Schedules 1,2,3 are now OPEN with ticket_open_at in the past.
+스케줄이 오픈된 상태로 설정되었습니다.
+
+=== 토큰 재발급 (실행 시마다 새로 발급) ===
+=== 기존 토큰 유효성 검증 ===
+유효한 토큰: 2000개
+=== 추가 토큰 불필요 (유효한 토큰이 충분함: 2000/100) ===
+Total tokens: 2000 (유효한 기존 토큰: 2000, 새로 발급: 0)
+=== JSON 형식 변환 ===
+Generated /Users/suhyen/Documents/GitHub/fairticket-lab/FairTicket-BE/load-test/data/queue/tokens.json (    2000 users)
+Done.
+
+=== 환경 검증 (서버 연결, 스케줄 오픈, 토큰 유효성) ===
+=== 1) 서버 연결 확인 (http://localhost:8080) ===
+  OK
+
+=== 2) 스케줄 오픈 여부 (CONCERT_ID=1, SCHEDULE_ID=1) ===
+  OK (해당 회차 오픈)
+
+=== 3) 토큰 1건으로 Queue Enter 실제 호출 (HTTP 코드 확인) ===
+  HTTP 상태: 200
+  응답 본문: {"scheduleId":1,"userId":5,"position":0,"estimatedWaitMinutes":0,"message":"이미 입장 토큰이 발급되었습니다"}
+  OK — 토큰 유효, 2xx 기대 가능.
+
+=== 검증 완료: 시나리오 실행 가능 상태입니다. ===
+
+=== 대기열 시나리오: enter → status (WAITING 대기) → READY 흐름 ===
+k6 실행: VUs=100, Duration=60s, TPS=100
+
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: scripts/queue-flow.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 200 max VUs, 1m30s max duration (incl. graceful stop):
+              * constant_arrival_rate: 100.00 iterations/s for 1m0s (maxVUs: 100-200, gracefulStop: 30s)
+
+
+  === Load Test Summary ===
+
+  === 요청 통계 ===
+    Enter requests: 6000
+    Status requests: 6000
+    Heartbeat requests: 0
+    READY received: 6000
+    Total requests: 12000
+    Failed requests rate: 0.00%
+
+  === 전체 HTTP 요청 지연시간 (ms) ===
+    min: 0.69
+    avg: 2.15
+    max: 78.64
+    p50: 1.46
+    p90: 2.84
+    p95: 4.54
+    p99: 0.00
+
+  === Enter API 지연시간 (ms) ===
+    count: 6000
+    min: 0.80
+    avg: 2.43
+    max: 78.64
+    p50: 1.54
+    p90: 3.13
+    p95: 5.33
+    p99: 0.00
+
+  === Status API 지연시간 (ms) ===
+    count: 6000
+    min: 0.69
+    avg: 1.87
+    max: 64.38
+    p50: 1.36
+    p90: 2.52
+    p95: 4.02
+    p99: 0.00
+
+  === Enter → READY 소요 시간 (ms) ===
+    count: 6000
+    min: 1.00
+    avg: 4.56
+    max: 127.00
+    p50: 3.00
+    p90: 6.00
+    p95: 10.00
+    p99: 0.00
+
+  === 처리량 ===
+    테스트 지속 시간: 60.00초
+    전체 평균 RPS: 200.00 (Enter + Status + Heartbeat 합계)
+    Enter RPS: 100.00
+    Status RPS: 100.00
+    실제 TPS (Enter/초): 100.00
+
+running (1m00.0s), 000/100 VUs, 6000 complete and 0 interrupted iterations
+constant_arrival_rate ✓ [ 100% ] 000/100 VUs  1m0s  100.00 iters/s

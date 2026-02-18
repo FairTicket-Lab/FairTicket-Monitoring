@@ -1,0 +1,225 @@
+version: '3.8'
+
+configs:
+  prometheus_yml:
+    content: |
+      # Prometheus 설정 (FairTicket-BE 메트릭 수집)
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      scrape_configs:
+        - job_name: 'prometheus'
+          static_configs:
+            - targets: ['localhost:9090']
+        - job_name: 'fairticket-spring'
+          metrics_path: '/actuator/prometheus'
+          static_configs:
+            - targets: ['fairticket-spring:8080']
+  grafana_datasources_yml:
+    content: |
+      # Grafana 시작 시 자동 등록되는 데이터 소스
+      apiVersion: 1
+      datasources:
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          url: http://prometheus:9090
+          uid: prometheus
+          isDefault: true
+          editable: false
+        - name: Loki
+          type: loki
+          access: proxy
+          url: http://loki:3100
+          uid: loki
+          editable: false
+  grafana_dashboards_yml:
+    content: |
+      # Grafana 시작 시 자동 로드되는 대시보드
+      apiVersion: 1
+      providers:
+        - name: 'default'
+          orgId: 1
+          folder: ''
+          type: file
+          disableDeletion: false
+          editable: true
+          allowUiUpdates: true
+          options:
+            path: /var/lib/grafana/dashboards
+  loki_yml:
+    content: |
+      auth_enabled: false
+      server:
+        http_listen_port: 3100
+      common:
+        path_prefix: /loki
+        storage:
+          filesystem:
+            chunks_directory: /loki/chunks
+            rules_directory: /loki/rules
+        replication_factor: 1
+        ring:
+          kvstore:
+            store: inmemory
+      schema_config:
+        configs:
+          - from: 2020-10-24
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+  promtail_yml:
+    content: |
+      server:
+        http_listen_port: 9080
+      positions:
+        filename: /tmp/positions.yaml
+      clients:
+        - url: http://loki:3100/loki/api/v1/push
+      scrape_configs:
+        - job_name: docker
+          docker_sd_configs:
+            - host: unix:///var/run/docker.sock
+              refresh_interval: 5s
+          relabel_configs:
+            - source_labels: ['__meta_docker_container_name']
+              regex: '/(.*)'
+              target_label: container
+
+services:
+  fairticket-spring:
+    # 빌드 컨텍스트를 FairTicket-BE 디렉토리로 지정
+    # 이 디렉토리(FairTicket-Monitoring/load-test/docker/)에서 실행 시,
+    # 상대 경로 ../../../FairTicket-BE가 FairTicket-BE 프로젝트 루트를 가리킵니다.
+    build:
+      context: ../../../FairTicket-BE
+      dockerfile: Dockerfile  # FairTicket-BE/Dockerfile 사용
+    image: suhyen/fairticket-spring:v01
+    container_name: fairticket-spring
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_R2DBC_URL: r2dbc:postgresql://postgres:5432/fairticket
+      SPRING_R2DBC_USERNAME: fairticket
+      SPRING_R2DBC_PASSWORD: fairticket123
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: "6379"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: fairticket-postgres
+    environment:
+      POSTGRES_DB: fairticket
+      POSTGRES_USER: fairticket
+      POSTGRES_PASSWORD: fairticket123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # FairTicket-BE의 init.sql 파일을 마운트 (상대 경로 수정됨)
+      - ../../../FairTicket-BE/src/main/resources/init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fairticket"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: fairticket-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes --notify-keyspace-events Ex
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: fairticket-prometheus
+    ports:
+      - "9090:9090"
+    configs:
+      - source: prometheus_yml
+        target: /etc/prometheus/prometheus.yml
+    volumes:
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    extra_hosts:
+      # Mac/Windows Docker Desktop: host.docker.internal 자동 제공
+      # Linux: host.docker.internal을 호스트 IP로 매핑
+      - 'host.docker.internal:host-gateway'
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: fairticket-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_SERVER_ROOT_URL: http://localhost:3000
+    configs:
+      - source: grafana_datasources_yml
+        target: /etc/grafana/provisioning/datasources/datasources.yml
+      - source: grafana_dashboards_yml
+        target: /etc/grafana/provisioning/dashboards/dashboards.yml
+    volumes:
+      - grafana_data:/var/lib/grafana
+      # FairTicket-Monitoring/load-test/dashboards 디렉토리를 마운트 (상대 경로 수정됨)
+      - ../../dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+      - loki
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:3.3.0
+    container_name: fairticket-loki
+    ports:
+      - "3100:3100"
+    configs:
+      - source: loki_yml
+        target: /etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    command: -config.file=/etc/loki/local-config.yaml
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:3.3.0
+    container_name: fairticket-promtail
+    configs:
+      - source: promtail_yml
+        target: /etc/promtail/config.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:

@@ -1,0 +1,141 @@
+suhyen@mac-m2 load-test % ./scripts/04-run-queue-1000.sh
+=== 스케줄 오픈 상태 확인 (scheduleId=1) ===
+스케줄이 아직 오픈되지 않았습니다. seed-db.sh 실행 후 재확인합니다.
+Applying seed via Docker (fairticket-postgres)...
+UPDATE 1
+UPDATE 2
+INSERT 0 0
+INSERT 0 0
+INSERT 0 0
+Done. Schedules 1,2,3 are now OPEN with ticket_open_at in the past.
+스케줄이 오픈된 상태로 설정되었습니다.
+
+=== 토큰 재발급 (실행 시마다 새로 발급) ===
+=== 기존 토큰 유효성 검증 ===
+유효한 토큰: 1374개
+=== 추가 토큰 불필요 (유효한 토큰이 충분함: 1374/1000) ===
+Total tokens: 1374 (유효한 기존 토큰: 1374, 새로 발급: 0)
+=== JSON 형식 변환 ===
+Generated /Users/suhyen/Documents/GitHub/fairticket-lab/FairTicket-BE/load-test/data/queue/tokens.json (    1374 users)
+Done.
+
+=== 환경 검증 (서버 연결, 스케줄 오픈, 토큰 유효성) ===
+=== 1) 서버 연결 확인 (http://localhost:8080) ===
+  OK
+
+=== 2) 스케줄 오픈 여부 (CONCERT_ID=1, SCHEDULE_ID=1) ===
+  OK (해당 회차 오픈)
+
+=== 3) 토큰 1건으로 Queue Enter 실제 호출 (HTTP 코드 확인) ===
+  HTTP 상태: 200
+  응답 본문: {"scheduleId":1,"userId":5,"position":0,"estimatedWaitMinutes":0,"message":"이미 입장 토큰이 발급되었습니다"}
+  OK — 토큰 유효, 2xx 기대 가능.
+
+=== 검증 완료: 시나리오 실행 가능 상태입니다. ===
+
+=== 대기열 시나리오: enter → status (WAITING 대기) → READY 흐름 ===
+k6 실행: VUs=1000, Duration=60s, TPS=1000
+
+
+         /\      Grafana   /‾‾/  
+    /\  /  \     |\  __   /  /   
+   /  \/    \    | |/ /  /   ‾‾\ 
+  /          \   |   (  |  (‾)  |
+ / __________ \  |_|\_\  \_____/ 
+
+
+     execution: local
+        script: scripts/queue-flow.js
+        output: -
+
+     scenarios: (100.00%) 1 scenario, 2000 max VUs, 1m30s max duration (incl. graceful stop):
+              * constant_arrival_rate: 1000.00 iterations/s for 1m0s (maxVUs: 1000-2000, gracefulStop: 30s)
+
+WARN[0091] User 538 did not receive READY status within 1000 iterations  source=console
+WARN[0091] User 1079 did not receive READY status within 1000 iterations  source=console
+WARN[0091] User 679 did not receive READY status within 1000 iterations  source=console
+WARN[0091] User 658 did not receive READY status within 1000 iterations  source=console
+WARN[0091] User 843 did not receive READY status within 1000 iterations  source=console
+WARN[0092] User 581 did not receive READY status within 1000 iterations  source=console
+
+  === Load Test Summary ===
+
+  === 요청 통계 ===
+    Enter requests: 57198
+    Status requests: 107169
+    Heartbeat requests: 2318
+    READY received: 56660
+    Total requests: 166685
+    Failed requests rate: 0.00%
+
+  === 실패 분석 ===
+    Enter 실패: 0건
+    Status 실패: 0건
+    Heartbeat 실패: 0건
+    Status 404 (NOT_IN_QUEUE): 0건 (heartbeat TTL 만료로 대기열 제거)
+    Status 500 (서버 에러): 0건
+    타임아웃/연결 실패: 0건
+
+  === 전체 HTTP 요청 지연시간 (ms) ===
+    min: 0.51
+    avg: 56.46
+    max: 2325.06
+    p50: 3.40
+    p90: 164.11
+    p95: 290.38
+    p99: 0.00
+
+  === Enter API 지연시간 (ms) ===
+    count: 57198
+    min: 0.53
+    avg: 65.02
+    max: 2309.89
+    p50: 2.50
+    p90: 212.56
+    p95: 345.54
+    p99: 0.00
+
+  === Status API 지연시간 (ms) ===
+    count: 107169
+    min: 0.51
+    avg: 52.53
+    max: 2325.06
+    p50: 3.77
+    p90: 138.18
+    p95: 261.04
+    p99: 0.00
+
+  === Heartbeat API 지연시간 (ms) ===
+    count: 2318
+    min: 0.70
+    avg: 26.80
+    max: 409.09
+    p50: 4.97
+    p90: 97.45
+    p95: 132.42
+    p99: 0.00
+
+  === Enter → READY 소요 시간 (ms) ===
+    count: 56660
+    min: 1.00
+    avg: 212.01
+    max: 39801.00
+    p50: 5.00
+    p90: 339.00
+    p95: 566.00
+    p99: 0.00
+
+  === 처리량 ===
+    설정된 테스트 시간: 60.00초
+    실제 실행 시간: 90.93초 (graceful stop 포함)
+    RPS 계산 기준 시간: 60.00초
+    전체 평균 RPS: 2778.08 (Enter + Status + Heartbeat 합계)
+    Enter RPS: 953.30
+    Status RPS: 1786.15
+    Heartbeat RPS: 38.63
+    실제 TPS (Enter/초): 953.30
+    목표 TPS: 1000
+    TPS 달성률: 95.33%
+
+running (1m30.9s), 0000/1217 VUs, 56660 complete and 538 interrupted iterations
+constant_arrival_rate ✓ [======================================] 0538/1217 VUs  1m0s  1000.00 iters/s
