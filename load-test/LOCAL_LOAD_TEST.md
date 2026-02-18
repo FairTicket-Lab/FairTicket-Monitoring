@@ -646,7 +646,7 @@ Redis Sorted Set/토큰 발급 지연, 429(Rate Limit) 발생 구간, 타임아�
   - `/api/v1/queue/{scheduleId}/status`: 824 µs (마이크로초)
   - `/api/v1/queue/{scheduleId}/heartbeat`: 3.83 ms
 
-![서비스 메트릭 - 500TPS](results/500-tps-2.png)
+![서비스 메트릭 - 500TPS](results/500-tps-1.png)
 
 #### 분석
 
