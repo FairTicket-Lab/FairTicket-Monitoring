@@ -1,53 +1,42 @@
 # FairTicket Monitoring
 
-## Architecture
+FairTicket-BE의 모니터링 및 부하 테스트를 위한 프로젝트입니다.
 
-모니터링 스택은 Prometheus(메트릭 수집 및 저장소), Loki(로그 저장소), Promtail(로그 수집), Grafana(시각화)로 구성되며, FairTicket-BE와 FairTicket-FE를 대상으로 합니다.
+## 개요
 
-```mermaid
-flowchart TB
-  subgraph targets["Monitoring Targets"]
-    BE[FairTicket-BE :8080]
-    FE[FairTicket-FE]
-  end
+이 프로젝트는 FairTicket-BE 애플리케이션의 성능 모니터링과 부하 테스트를 수행하기 위한 인프라와 도구를 제공합니다.
 
-  subgraph stack["Monitoring Stack"]
-    Prometheus[Prometheus :9090]
-    Loki[Loki :3100]
-    Promtail[Promtail]
-    Grafana[Grafana :3000]
-  end
+**주요 기능:**
+- k6 기반 대기열 시스템 부하 테스트
+- Prometheus/Grafana를 통한 실시간 메트릭 수집 및 시각화
+- Docker Compose 기반 로컬 테스트 환경 구성
+- JVM 메트릭 모니터링 (CPU, Heap Memory, GC)
 
-  BE -->|메트릭 스크랩| Prometheus
-  BE -->|로그| Promtail
-  FE -->|로그| Promtail
-  Promtail -->|로그 전송| Loki
-  Prometheus -->|메트릭 조회| Grafana
-  Loki -->|로그 조회| Grafana
+## 주요 구성 요소
+
+- **부하 테스트**: k6를 사용한 대기열 시스템 성능 테스트
+- **모니터링 스택**: Prometheus, Grafana, Loki, Promtail
+- **테스트 환경**: Docker Compose 기반 로컬 개발 환경
+
+## 빠른 시작
+
+부하 테스트 실행 방법은 [load-test/LOCAL_LOAD_TEST.md](./load-test/LOCAL_LOAD_TEST.md)를 참고하세요.
+
+## 디렉토리 구조
+
+```
+FairTicket-Monitoring/
+├── load-test/          # 부하 테스트 관련 파일
+│   ├── docker/         # Docker Compose 설정
+│   ├── scripts/        # 테스트 실행 스크립트
+│   ├── data/           # 테스트 데이터 및 설정
+│   ├── dashboards/     # Grafana 대시보드
+│   └── results/        # 테스트 결과
+└── README.md
 ```
 
-## How to Start
+## 요구 사항
 
-### 1. 스택 실행
-
-`FairTicket-Monitoring` 디렉토리에서:
-
-```bash
-docker compose up -d
-docker compose down -v
-```
-
-### 2. 각 툴 접속
-
-| 툴 | URL | 비고 |
-|----|-----|------|
-| **Grafana** | http://localhost:3000 | 로그인: `admin` / `admin` |
-| **Prometheus** | http://localhost:9090 | 메트릭 조회 및 PromQL |
-| **Loki** | http://localhost:3100 | 로그 저장소 |
-
-### 3. Grafana 대시보드 추가
-
-1. http://localhost:3000 에서 Grafana에 로그인합니다.
-2. 왼쪽 메뉴 **Dashboards** → **New** → **Import** 를 선택합니다.
-3. 대시보드 ID **17175** 를 입력하고 **Load**를 누릅니다.
-4. Prometheus·Loki 데이터소스를 각각 선택한 뒤 **Import** 로 대시보드를 불러옵니다.
+- Docker & Docker Compose
+- k6 (부하 테스트 실행 시)
+- FairTicket-BE 프로젝트 (동일한 레포지토리 루트에 위치)
